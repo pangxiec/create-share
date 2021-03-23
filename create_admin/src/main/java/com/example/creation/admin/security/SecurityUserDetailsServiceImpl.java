@@ -1,0 +1,56 @@
+package com.example.creation.admin.security;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.creation.admin.global.SQLConf;
+import com.example.creation.commons.entity.Admin;
+import com.example.creation.commons.entity.Role;
+import com.example.creation.xo.global.SysConf;
+import com.example.creation.xo.service.AdminService;
+import com.example.creation.xo.service.RoleService;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 将SpringSecurity中的用户管理和数据库的管理员对应起来
+ *
+ * @author Administrator
+ */
+@Service
+public class SecurityUserDetailsServiceImpl implements UserDetailsService {
+
+    @Resource
+    private AdminService adminService;
+
+    @Resource
+    private RoleService roleService;
+
+    /**
+     * @param username 浏览器输入的用户名【需要保证用户名的唯一性】
+     * @return
+     * @throws UsernameNotFoundException
+     */
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+
+        QueryWrapper<Admin> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq(SQLConf.USER_NAME, username);
+        queryWrapper.last(SysConf.LIMIT_ONE);
+        Admin admin = adminService.getOne(queryWrapper);
+        if (admin == null) {
+            throw new UsernameNotFoundException(String.format("No user found with username '%s'.", username));
+        } else {
+            //查询出角色信息封装到admin中
+            List<String> roleNames = new ArrayList<>();
+            Role role = roleService.getById(admin.getRoleUid());
+            roleNames.add(role.getRoleName());
+            admin.setRoleNames(roleNames);
+            return SecurityUserFactory.create(admin);
+        }
+    }
+}
